@@ -89,24 +89,24 @@ FFPROBE_DIR = APP_DIR / ".ffprobe"
 
 _FFPROBE_BUILDS = {
     ("Windows", "x86_64"): {
-        "url":  "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
+        "url":  "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip",
         "name": "ffprobe.exe",
         "type": "zip",
     },
     ("Darwin", "x86_64"): {
-        "url":  "https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip",
+        "url":  "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffprobe-darwin-x64",
         "name": "ffprobe",
-        "type": "zip",
+        "type": "binary",
     },
     ("Darwin", "arm64"): {
-        "url":  "https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip",
+        "url":  "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffprobe-darwin-arm64",
         "name": "ffprobe",
-        "type": "zip",
+        "type": "binary",
     },
     ("Linux", "x86_64"): {
-        "url":  "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz",
+        "url":  "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffprobe-linux-x64",
         "name": "ffprobe",
-        "type": "tar",
+        "type": "binary",
     },
 }
 
@@ -137,7 +137,10 @@ def download_ffprobe(progress=None) -> Path:
 
     _urlretrieve(info["url"], archive, progress)
 
-    if info["type"] == "zip":
+    if info["type"] == "binary":
+        # прямой бинарник — просто переименовываем
+        archive.rename(dest)
+    elif info["type"] == "zip":
         with zipfile.ZipFile(archive) as zf:
             names = zf.namelist()
             match = next((n for n in names if n.endswith("/" + info["name"]) or n == info["name"]), None)
@@ -145,6 +148,7 @@ def download_ffprobe(progress=None) -> Path:
                 raise RuntimeError(f"ffprobe не найден в архиве.\nФайлы: {names[:6]}")
             with zf.open(match) as src, open(dest, "wb") as out:
                 shutil.copyfileobj(src, out)
+        archive.unlink(missing_ok=True)
     else:
         with tarfile.open(archive) as tf:
             members = tf.getmembers()
@@ -153,8 +157,7 @@ def download_ffprobe(progress=None) -> Path:
                 raise RuntimeError("ffprobe не найден в tar-архиве.")
             with tf.extractfile(match) as src, open(dest, "wb") as out:
                 shutil.copyfileobj(src, out)
-
-    archive.unlink(missing_ok=True)
+        archive.unlink(missing_ok=True)
 
     if key[0] != "Windows":
         dest.chmod(dest.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)

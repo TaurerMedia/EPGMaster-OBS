@@ -1,6 +1,4 @@
 # build/windows.spec
-# pyinstaller build/windows.spec --noconfirm --clean
-
 block_cipher = None
 
 a = Analysis(
@@ -18,5 +16,4 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(pyz, a.scripts, a.binaries, a.zipfiles, a.datas, [],
     name='OBS_EPG_Converter',
     debug=False, strip=False, upx=True, console=False,
-    icon='../assets/icon.ico',
 )

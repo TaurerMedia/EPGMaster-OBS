@@ -416,7 +416,7 @@ class App(tk.Tk):
                  font=font(20, "bold")).pack(side="left")
 
         tk.Label(inner, text=" · OBS EPG Converter",
-                 bg=DS["primary"], fg="#FFFFFFAA",
+                 bg=DS["primary"], fg="#AABFFF",
                  font=font(12)).pack(side="left", pady=(5, 0))
 
         # thin bottom accent

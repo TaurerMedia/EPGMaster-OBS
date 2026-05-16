@@ -1,4 +1,4 @@
-name: Build releases
+name: Build & Release
 
 on:
   push:
@@ -13,18 +13,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Build macOS .app + .dmg
+      - name: Build macOS
         run: |
-          pip install pyinstaller
-          pyinstaller obs_epg_macos.spec --noconfirm --clean
-          mkdir dmg_tmp
-          cp -R "dist/OBS EPG Converter.app" dmg_tmp/
-          ln -s /Applications dmg_tmp/Applications
-          hdiutil create -volname "OBS EPG Converter" -srcfolder dmg_tmp -ov -format UDZO dist/OBS_EPG_Converter_macOS.dmg
+          pip install pyinstaller certifi
+          curl -fsSL "https://s3-v1-assets-eu7-01-prd-vxdgroup-cloud-xyz.b-cdn.net/softobs_5i1j5i/icon.png" -o assets/icon.png || true
+          if [ -f assets/icon.png ]; then
+            mkdir -p assets/icon.iconset
+            for size in 16 32 64 128 256 512; do
+              sips -z $size $size assets/icon.png --out "assets/icon.iconset/icon_${size}x${size}.png" 2>/dev/null || true
+              double=$((size * 2))
+              sips -z $double $double assets/icon.png --out "assets/icon.iconset/icon_${size}x${size}@2x.png" 2>/dev/null || true
+            done
+            iconutil -c icns assets/icon.iconset -o assets/icon.icns 2>/dev/null || true
+          fi
+          cd build && pyinstaller macos.spec --noconfirm --clean
+          cd ..
+          mkdir -p _dmg
+          cp -R "build/dist/OBS EPG Converter.app" _dmg/
+          ln -s /Applications _dmg/Applications
+          curl -fsSL "https://s3-v1-assets-eu7-01-prd-vxdgroup-cloud-xyz.b-cdn.net/softobs_5i1j5i/install-bg.png" -o assets/dmg-bg.png || true
+          if [ -f assets/dmg-bg.png ]; then mkdir -p _dmg/.background && cp assets/dmg-bg.png _dmg/.background/bg.png; fi
+          hdiutil create -volname "OBS EPG Converter" -srcfolder _dmg -ov -format UDZO OBS_EPG_Converter_macOS.dmg
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-dmg
-          path: dist/OBS_EPG_Converter_macOS.dmg
+          name: macos
+          path: OBS_EPG_Converter_macOS.dmg
 
   build-windows:
     runs-on: windows-latest
@@ -33,14 +46,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Build Windows .exe
+      - name: Build Windows
         run: |
-          pip install pyinstaller
-          pyinstaller obs_epg_windows.spec --noconfirm --clean
+          pip install pyinstaller certifi
+          curl -fsSL "https://s3-v1-assets-eu7-01-prd-vxdgroup-cloud-xyz.b-cdn.net/softobs_5i1j5i/icon.png" -o assets/icon.png
+          cd build
+          pyinstaller windows.spec --noconfirm --clean
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-exe
-          path: dist/OBS_EPG_Converter.exe
+          name: windows
+          path: build/dist/OBS_EPG_Converter.exe
 
   build-linux:
     runs-on: ubuntu-latest
@@ -49,16 +64,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install tkinter
-        run: sudo apt-get install -y python3-tk
-      - name: Build Linux binary
+      - name: Build Linux
         run: |
-          pip install pyinstaller
-          pyinstaller obs_epg_linux.spec --noconfirm --clean
+          sudo apt-get install -y python3-tk
+          pip install pyinstaller certifi
+          cd build && pyinstaller linux.spec --noconfirm --clean
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-binary
-          path: dist/obs-epg-converter
+          name: linux
+          path: build/dist/obs-epg-converter
 
   release:
     needs: [build-macos, build-windows, build-linux]
@@ -69,11 +83,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
-          files: |
-            artifacts/macos-dmg/OBS_EPG_Converter_macOS.dmg
-            artifacts/windows-exe/OBS_EPG_Converter.exe
-            artifacts/linux-binary/obs-epg-converter
           generate_release_notes: true
+          files: |
+            artifacts/macos/OBS_EPG_Converter_macOS.dmg
+            artifacts/windows/OBS_EPG_Converter.exe
+            artifacts/linux/obs-epg-converter

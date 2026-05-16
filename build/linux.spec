@@ -1,9 +1,11 @@
-# build: pyinstaller obs_epg_linux.spec --noconfirm --clean
+# build/linux.spec
+# pyinstaller build/linux.spec --noconfirm --clean
+
 block_cipher = None
 
 a = Analysis(
-    ['obs_epg.py'],
-    pathex=['.'],
+    ['../src/app.py'],
+    pathex=['../src'],
     binaries=[],
     datas=[],
     hiddenimports=['tkinter', 'tkinter.ttk', 'tkinter.filedialog', 'tkinter.messagebox'],

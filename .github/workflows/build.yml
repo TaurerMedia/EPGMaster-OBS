@@ -1,1 +1,79 @@
-404: Not Found
+name: Build releases
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build macOS .app + .dmg
+        run: |
+          pip install pyinstaller
+          pyinstaller obs_epg_macos.spec --noconfirm --clean
+          mkdir dmg_tmp
+          cp -R "dist/OBS EPG Converter.app" dmg_tmp/
+          ln -s /Applications dmg_tmp/Applications
+          hdiutil create -volname "OBS EPG Converter" -srcfolder dmg_tmp -ov -format UDZO dist/OBS_EPG_Converter_macOS.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist/OBS_EPG_Converter_macOS.dmg
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build Windows .exe
+        run: |
+          pip install pyinstaller
+          pyinstaller obs_epg_windows.spec --noconfirm --clean
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/OBS_EPG_Converter.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install tkinter
+        run: sudo apt-get install -y python3-tk
+      - name: Build Linux binary
+        run: |
+          pip install pyinstaller
+          pyinstaller obs_epg_linux.spec --noconfirm --clean
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-binary
+          path: dist/obs-epg-converter
+
+  release:
+    needs: [build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/macos-dmg/OBS_EPG_Converter_macOS.dmg
+            artifacts/windows-exe/OBS_EPG_Converter.exe
+            artifacts/linux-binary/obs-epg-converter
+          generate_release_notes: true
